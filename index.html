@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cursed Account Maker (for fun)</title>
+  <style>
+    /* Cursed but functional styling */
+    :root{--bg:#0b0f14;--card:#0f1720;--accent:#ff4d6d;--muted:#9aa6b2}
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; background: radial-gradient(1200px 600px at 10% 10%, #071325 0%, transparent 10%), linear-gradient(180deg,#07121a 0%, #081323 100%), var(--bg); color:#e6eef6}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:32px}
+    .card{width:100%;max-width:880px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03);backdrop-filter: blur(6px); border-radius:16px;padding:24px;box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+    h1{margin:0;font-size:20px;letter-spacing:0.6px}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:20px;margin-top:16px}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input[type=text],input[type=password],select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);color:inherit;font-size:14px}
+    .row{margin-bottom:12px}
+    .btn{display:inline-block;padding:10px 14px;border-radius:10px;border:none;background:var(--accent);color:white;cursor:pointer;font-weight:600}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .muted{color:var(--muted);font-size:13px}
+    .log{background:#071422;padding:12px;border-radius:8px;border:1px dashed rgba(255,255,255,0.02);min-height:160px;overflow:auto}
+    .tiny{font-size:12px;color:var(--muted)}
+    .riddle{background:linear-gradient(90deg, rgba(255,77,109,0.06), rgba(0,121,191,0.03));padding:8px;border-radius:8px}
+    .rotate{display:inline-block;transform-origin:center;transition:transform .6s cubic-bezier(.2,.9,.3,1)}
+    .spin{animation:spin 4s linear infinite}
+    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+    .accounts-list{margin-top:8px}
+    .account-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);margin-bottom:8px}
+    .ascii{font-family:monospace;font-size:12px;white-space:pre-wrap}
+    footer{margin-top:14px;color:var(--muted);font-size:12px}
+    /* small screens */
+    @media (max-width:880px){ .grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <h1>✨ Cursed Account Maker</h1>
+          <div class="tiny">A deliberately silly, client-side only account mockup that <strong>must not</strong> be used with real passwords.</div>
+        </div>
+        <div class="tiny">Static · Works on GitHub Pages</div>
+      </div>
+
+      <div class="grid">
+        <!-- left: form -->
+        <div>
+          <div class="row">
+            <label class="rotate" id="label-username">Username (or your spirit animal)</label>
+            <input id="username" type="text" placeholder="e.g. glowing_toaster" />
+          </div>
+
+          <div class="row">
+            <label id="label-password">Password (sing it)</label>
+            <input id="password" type="password" placeholder="Type something dramatic" />
+            <div class="tiny" id="pw-hint">Strength: <span id="strength">—</span> <span id="pizza"> </span></div>
+          </div>
+
+          <div class="row">
+            <label id="label-bio">Bio (write a curse)</label>
+            <textarea id="bio" rows="3" placeholder="I enjoy long walks on the motherboard..."></textarea>
+          </div>
+
+          <div class="row riddle">
+            <label>Riddle (prove you are delightfully cursed)</label>
+            <div class="tiny">What has keys but can't open doors? (answer: keyboard)</div>
+            <input id="riddle" type="text" placeholder="Type the answer here" />
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
+            <button class="btn" id="create">Create cursed account</button>
+            <button class="btn ghost" id="randomize">Surprise me</button>
+            <button class="btn ghost" id="clear">Clear storage</button>
+          </div>
+
+          <div style="margin-top:12px" class="tiny">Extra rituals:</div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn ghost" id="fake-oauth">Sign in with Muffin</button>
+            <button class="btn ghost" id="toggle-rotate">Toggle label chaos</button>
+          </div>
+
+          <footer>
+            <div><strong>Warning:</strong> This is purely client-side. Credentials are stored in <code>localStorage</code> with a silly obfuscation. Don't use real passwords.</div>
+          </footer>
+        </div>
+
+        <!-- right: log & accounts -->
+        <div>
+          <div class="muted">Cursed log</div>
+          <div class="log" id="log">Initialize the ritual by filling the form.</div>
+
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+            <div class="muted">Saved accounts</div>
+            <div class="tiny">(localStorage)</div>
+          </div>
+          <div class="accounts-list" id="accounts"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- cursed utilities (do not take seriously) ---
+    const ENC_KEY = 13; // XOR offset
+    function xorEncode(str){
+      // simple XOR then btoa; intentionally insecure
+      const chars = Array.from(str).map(c => String.fromCharCode(c.charCodeAt(0) ^ ENC_KEY)).join('');
+      return btoa(unescape(encodeURIComponent(chars)));
+    }
+    function xorDecode(enc){
+      try{
+        const decoded = decodeURIComponent(escape(atob(enc)));
+        return Array.from(decoded).map(c => String.fromCharCode(c.charCodeAt(0) ^ ENC_KEY)).join('');
+      }catch(e){return '';}
+    }
+
+    // DOM
+    const usernameEl = document.getElementById('username');
+    const passwordEl = document.getElementById('password');
+    const bioEl = document.getElementById('bio');
+    const riddleEl = document.getElementById('riddle');
+    const createBtn = document.getElementById('create');
+    const logEl = document.getElementById('log');
+    const accountsEl = document.getElementById('accounts');
+    const strengthEl = document.getElementById('strength');
+    const pizzaEl = document.getElementById('pizza');
+    const randomizeBtn = document.getElementById('randomize');
+    const clearBtn = document.getElementById('clear');
+    const fakeOauth = document.getElementById('fake-oauth');
+    const toggleRotate = document.getElementById('toggle-rotate');
+
+    let labelChaos = false;
+    function log(msg){
+      const time = new Date().toLocaleTimeString();
+      logEl.innerHTML = `<div style="opacity:.9">[${time}] ${msg}</div>` + logEl.innerHTML;
+    }
+
+    // password whimsy
+    function getStrength(pw){
+      let score = 0;
+      if(pw.length>=8) score++;
+      if(/[A-Z]/.test(pw)) score++;
+      if(/[0-9]/.test(pw)) score++;
+      if(/[^A-Za-z0-9]/.test(pw)) score++;
+      return score; // 0..4
+    }
+    function refreshStrength(){
+      const s = getStrength(passwordEl.value);
+      const names = ['awful','meh','ok','strong','mythical'];
+      strengthEl.textContent = names[s];
+      pizzaEl.textContent = ' ' + '🍕'.repeat(s);
+    }
+    passwordEl.addEventListener('input', refreshStrength);
+
+    // save / load
+    function readAccounts(){
+      try{ const raw = localStorage.getItem('cursed_accounts'); return raw? JSON.parse(raw): []; }catch(e){return []}
+    }
+    function saveAccounts(list){ localStorage.setItem('cursed_accounts', JSON.stringify(list)); }
+
+    function renderAccounts(){
+      const list = readAccounts();
+      accountsEl.innerHTML = '';
+      if(list.length===0){ accountsEl.innerHTML = '<div class="tiny">No accounts yet.</div>'; return; }
+      list.forEach((a,idx)=>{
+        const node = document.createElement('div'); node.className='account-item';
+        node.innerHTML = `<div><strong>${a.username}</strong><div class="tiny">bio: ${a.bio.slice(0,40)}</div></div><div style="display:flex;gap:8px;align-items:center"><button class="btn ghost" data-idx="${idx}" data-action="reveal">Reveal</button><button class="btn ghost" data-idx="${idx}" data-action="delete">Delete</button></div>`;
+        accountsEl.appendChild(node);
+      });
+    }
+
+    // cursed reveal shows ASCII art box with decoded password
+    accountsEl.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button'); if(!btn) return;
+      const idx = Number(btn.dataset.idx); const action = btn.dataset.action;
+      const list = readAccounts(); if(idx<0 || idx>=list.length) return;
+      if(action==='delete'){
+        list.splice(idx,1); saveAccounts(list); renderAccounts(); log('an account was banished.');
+      }else if(action==='reveal'){
+        const item = list[idx];
+        const pw = xorDecode(item.pw);
+        const art = toAsciiBox(`user:${item.username}\npass:${pw}`);
+        log('Revealed in the abyss:\n' + art.replace(/\n/g,' '));
+        alert('Behold the cursed credentials:\n\n' + art);
+      }
+    });
+
+    function toAsciiBox(text){
+      const lines = text.split('\n');
+      const width = Math.max(...lines.map(l=>l.length));
+      const top = '┌' + '─'.repeat(width+2) + '┐\n';
+      const mid = lines.map(l => '│ ' + l + ' '.repeat(width-l.length) + ' │').join('\n') + '\n';
+      const bot = '└' + '─'.repeat(width+2) + '┘\n';
+      return top + mid + bot;
+    }
+
+    createBtn.addEventListener('click', ()=>{
+      const username = usernameEl.value.trim();
+      const password = passwordEl.value;
+      const bio = bioEl.value.trim() || 'A little cursed.';
+      const riddle = riddleEl.value.trim().toLowerCase();
+
+      // basic validations
+      if(!username){ log('You forgot to summon a username.'); return; }
+      if(getStrength(password) < 2){ log('Password too weak for this ritual.'); }
+      if(riddle !== 'keyboard'){ log('Riddle failed. The spirits demand "keyboard".'); return; }
+
+      // do the cursed encode
+      const encoded = xorEncode(password);
+      const list = readAccounts();
+      list.push({username, pw: encoded, bio, created: new Date().toISOString()});
+      saveAccounts(list);
+      renderAccounts();
+
+      // do some UI fireworks
+      rippleCreate();
+      const ascii = toAsciiBox('Account created!\n' + username);
+      log('Created: ' + username + ' — locked with a toe-curling obfuscation.');
+
+      // show a modal-like ascii by alert (deliberately uncouth)
+      alert(ascii + '\n\n(Do not use this for real accounts)');
+    });
+
+    function rippleCreate(){
+      const label = document.getElementById('label-username');
+      label.classList.add('spin'); setTimeout(()=>label.classList.remove('spin'),1600);
+    }
+
+    // randomize button
+    randomizeBtn.addEventListener('click', ()=>{
+      usernameEl.value = ['glitch_cat','neon_custard','muffin_overlord','toaster.void'][Math.floor(Math.random()*4)];
+      passwordEl.value = 'P@ss' + Math.random().toString(36).slice(2,8) + '!';
+      bioEl.value = ['I subsidize pixels.','Battery-powered philosopher.','Eats clouds for breakfast.'][Math.floor(Math.random()*3)];
+      riddleEl.value = 'keyboard';
+      refreshStrength();
+      log('The oracle filled some fields for you.');
+    });
+
+    // clear storage (with confirm)
+    clearBtn.addEventListener('click', ()=>{
+      if(confirm('This will permanently erase all cursed accounts from localStorage. Proceed?')){
+        localStorage.removeItem('cursed_accounts'); renderAccounts(); log('All accounts incinerated.');
+      }
+    });
+
+    // fake oauth
+    fakeOauth.addEventListener('click', ()=>{
+      const r = confirm('Sign in with Muffin (fake). Allow muffin to access your crumbs?');
+      if(r){
+        // playful redirect to non-existent provider illusion
+        log('Muffin approved your crumb access.');
+        alert('Muffin says: you are now one with the crumbs.');
+      }else{ log('Muffin was offended.'); }
+    });
+
+    // toggle label chaos
+    toggleRotate.addEventListener('click', ()=>{
+      labelChaos = !labelChaos; document.querySelectorAll('.rotate').forEach(el=>el.style.transform = labelChaos ? 'rotate('+ (Math.random()*40-20) +'deg)' : 'none');
+      log(labelChaos ? 'Chaos sash tied.' : 'Chaos sash removed.');
+    });
+
+    // small animation: wobble labels on mousemove
+    document.addEventListener('mousemove', (e)=>{
+      if(!labelChaos) return;
+      const labels = document.querySelectorAll('label');
+      labels.forEach((l,i)=>{
+        const rx = (Math.sin((e.clientX+i*20)/120)*6).toFixed(2);
+        const ry = (Math.cos((e.clientY+i*10)/120)*6).toFixed(2);
+        l.style.transform = `translate(${rx}px, ${ry}px) rotate(${(rx*0.6)}deg)`;
+      });
+    });
+
+    // init
+    (function init(){ renderAccounts(); refreshStrength(); log('Cursed Account Maker ready.'); })();
+  </script>
+</body>
+</html>
